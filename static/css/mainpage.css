@@ -1,0 +1,178 @@
+body {
+    background-color: rgb(0, 0, 0);
+    user-select: none;
+}
+
+.navbar-brand {
+    font-family: 'Metal Mania', sans-serif;
+    font-size: 40px;
+    height: 40px;
+    margin-top: -20px;
+    padding: 0px;
+}
+
+.no-link-820 {
+    display: none;
+}
+
+/* Custom scrollbar */
+
+.custom-scrollbar {
+    scrollbar-width: 20px;
+    scrollbar-color: rgba(94, 127, 94, 0.1) rgba(44, 44, 44, 0.1);
+}
+
+.custom-scrollbar:hover {
+    scrollbar-width: 20px;
+    scrollbar-color: rgba(94, 127, 94, 0.5) rgba(44, 44, 44, 0.1);
+}
+
+
+/* MAIN CONTENT */
+
+.full-page-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.navbar {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    z-index: 10;
+}
+
+.main-container {
+    height: calc(100vh - 56px);
+    margin-top: 56px;
+    display: flex;
+}
+
+.lookup-container {
+    /* border: 1px solid red; */
+    width: 60%;
+    height: 100%;
+    padding: 10px;
+    overflow-x: hidden;
+    overflow-y: scroll;
+}
+
+.favs-container {
+    /* border: 1px solid blue; */
+    padding: 10px;
+    width: 40%;
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: scroll;
+}
+
+.resize-handle {
+    cursor: ew-resize;
+    width: 3px;
+    background-color: rgb(24, 24, 24);
+    height: 100%;
+}
+
+
+/*Lookup Search*/
+
+.lookup-inner-container {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.lookup-header {
+    padding: 10px;
+    background-color: rgb(24, 24, 24);
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+.deep-search {
+    margin-bottom: 10px;
+}
+
+.alpha-search {
+    display: flex;
+    justify-content: space-around;
+    color: white;
+}
+
+.alpha-letters:hover {
+    cursor: pointer;
+    color: rgb(0, 180, 0);
+    text-decoration: underline;
+}
+
+.horizontal-line {
+    border-top: 2px solid white;
+}
+
+.lookup-content {
+    background-color: rgb(24, 24, 24);
+    border-radius: 10px;
+    /* padding-left: 10px; */
+    padding: 10px;
+    color: white;
+}
+
+
+
+/* FAVS AND PLAY */
+
+.favs-play-header {
+    /* border: 1px solid red; */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 10px;
+    height: 125px;
+    background-color: rgb(24, 24, 24);
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+.favs-play-header button {
+    height: 100px;
+    width: 100px;
+    color: black;
+}
+
+.favs-play-content {
+    background-color: rgb(24, 24, 24);
+    border-radius: 10px;
+    padding: 10px;
+    color: white;
+}
+
+
+@media (max-width: 820px) {
+    .lookup-container {
+        width: 100%;
+    }
+
+    .favs-container {
+        display: none;
+    }
+
+    .favs-play-header {
+        display: none;
+        /* border: 1px solid red; */
+        /* display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        padding: 10px;
+        height: 125px;
+        background-color: rgb(24, 24, 24);
+        border-radius: 10px;
+        margin-bottom: 10px; */
+    }
+
+    .no-link-820 {
+        display: block;
+    }
+}

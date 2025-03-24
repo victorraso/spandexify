@@ -1,0 +1,49 @@
+.favs-title {
+    margin-bottom: -10px;
+}
+
+.favorite-categories {
+    margin-left: 20px;
+}
+
+.favorite-categories h5 {
+    margin-bottom: -10px;
+}
+
+.fav-bands-content, .fav-albums-content, .fav-songs-content {
+    background-color: #111;
+    padding-top: 10px;
+    padding-right: 10px;
+    padding-bottom: 1px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+}
+
+.fav-bands-content span, .fav-albums-content span, .fav-songs-content span {
+    color: orange;
+}
+
+.fav-bands-content span:hover, .fav-albums-content span:hover, .fav-songs-content span:hover {
+    color: orange;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.fav-songs-fullname {
+    display: inline-block;
+}
+
+.fav-remove-btn {
+    margin-left: 10px;
+    font-size: 13px;
+    color: lightgray;
+}
+
+.fav-remove-btn:hover {
+    color: red;
+}
+
+.fav-remove-btn:hover {
+    cursor: pointer;
+}
+

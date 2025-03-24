@@ -1,0 +1,266 @@
+
+.letter-container ul {
+    padding-left: 20px;
+}
+
+.band-container {
+    display: flex;
+    align-items: center;
+    position: relative;
+    padding-left: 20px;
+    padding: 15px;
+    border-radius: 10px;
+}
+
+.horizontal-line-dotted {
+    border-top: 2px dashed white;
+}
+
+.band-container:hover {
+    background-color: rgba(0, 0, 0, 0.4);
+    pointer-events: auto;
+}
+
+.disable-hover {
+    pointer-events: none; /* Disable hover effect */
+}
+
+.band-container:hover .band-icon{
+    box-shadow: 1px 1px 22px -10px rgb(119, 255, 0);
+}
+
+.band-icon {
+    min-width: 150px;
+    max-width: 150px;
+    border-radius: 10px;
+    background-color: black;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin-right: 10px;
+    padding: 10px;
+}
+
+.band-icon-pic {
+    border: 2px solid transparent;
+    border-radius: 50%;
+    min-width: 100px;
+    max-width: 100px;
+    min-height: 100px;
+    max-height: 100px;
+    overflow: hidden;
+}
+
+.band-icon-pic img {
+    width: 100%;
+}
+
+.band-icon-name {
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    color: lightgray;
+    margin-top: 3px;
+}
+
+.band-info {
+    align-items: center;
+    padding: 12px;
+    width: 100%;
+    overflow: hidden;
+}
+
+.band-info-btns {
+    display: flex;
+    gap: 10px;
+}
+
+.band-info-btns .btn{
+    white-space: nowrap;
+}
+
+.band-disc-btn {
+    color: black;
+}
+
+.band-info-ratings {
+    display: flex;
+    align-items: center;
+    height: 48px;
+}
+
+.band-info-your-rating {
+    position: absolute;
+    margin-right: 30px;
+}
+
+.rating-button {
+    padding-left: 0px;
+    color: lightgray;
+}
+
+.band-info-their-ratings {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    margin-left: 120px;
+}
+
+
+.band-ratings-average {
+    color: whitesmoke;
+}
+
+.band-ratings-votes {
+    margin-left: 5px;
+    color: gray;
+}
+
+.tablex {
+    min-width: 300px;
+    margin: 5px;
+}
+
+.rating-emoji,
+.rating-value {
+    padding-left: 11px;
+}
+
+.rating-option {
+    cursor: pointer;
+}
+
+.rating-option:hover {
+    background-color: rgba(81, 81, 81, 0.264);
+}
+
+.band-info-bottom .accordion-item {
+    border-radius: 0 !important;
+    border: 0px;
+    max-width: 400px;
+    background-color: transparent;
+}
+
+.band-info-bottom .accordion-header {
+    background-color: transparent;
+}
+
+.band-info-bottom .accordion-button {
+    background-color: whitesmoke;
+    color: black;
+    height: 35px;
+    padding-left: 12px;
+    padding-right: 10px;
+    padding-top: 12px;
+    padding-bottom: 10px;
+    box-shadow: none !important;
+}
+
+.band-info-bottom .accordion-button:focus,
+.band-info-bottom .accordion-button:not(.collapsed) {
+    background-color: black;
+    color: orange;
+}
+
+.band-info-bottom .accordion-body {
+    padding: 5px;
+    background-color: transparent;
+}
+
+.band-info-bottom .list-group {
+    padding: 0;
+}
+
+.band-info-bottom .list-group-item {
+    display: flex;
+    background-color: #111;
+    color: lightgray;
+    border: 0px;
+}
+
+.list-group-item-left {
+    padding-right: 10px;
+}
+
+.list-group-item-right .bi-play-circle-fill {
+    color: green;
+}
+
+.list-group-item-right .bi-play-circle-fill:hover {
+    color: rgb(0, 186, 0);
+    cursor: pointer;
+}
+
+.list-group-item-right .add-song-to-favorites:hover {
+    cursor: pointer;
+    color: red;
+}
+
+.list-group-item-favs {
+    display: flex;
+    gap: 10px;
+}
+
+.rating-stars {
+    display: flex;
+    gap: 3px;
+}
+
+.list-group-item-favs .add-song-to-favorites:hover {
+    cursor: pointer;
+    color: red;
+}
+
+.list-group-item-favs .bi-music-note-list:hover {
+    cursor: pointer;
+    color: rgb(0, 153, 255);
+}
+
+.band-info-bottom .list-group-item:hover {
+    background-color: #222;
+}
+
+.list-group-item-favs .bi-star:hover {
+    cursor: pointer;
+    color: rgb(240, 224, 0);
+}
+
+.list-group-item-favs .bi-star-fill {
+    cursor: pointer;
+    color: rgb(240, 224, 0);
+}
+
+
+@media (max-width: 820px) {
+    .band-container {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .band-icon {
+        flex-direction: row;
+        justify-content: left;
+        min-width: 250px;
+        max-width: 250px;
+    }
+    
+    .band-icon-pic {
+        min-width: 60px;
+        max-width: 60px;
+        min-height: 60px;
+        max-height: 60px;
+        margin-right: 10px;
+    }
+    
+    .band-info-their-ratings {
+        display: none;
+    }
+
+    .your-rate-menu {
+        left: -45px !important;
+    }
+}

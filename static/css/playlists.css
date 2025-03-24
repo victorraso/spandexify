@@ -1,0 +1,101 @@
+.playlists {
+    margin-left: 20px;
+}
+
+.playlist-title i {
+    margin-right: 5px;
+}
+
+
+/* ACCORDION */
+.playlist-items .accordion-item {
+    border-radius: 0 !important;
+    border: 0px;
+    max-width: 400px;
+    background-color: transparent;
+}
+
+.playlist-items .accordion-header {
+    background-color: transparent;
+}
+
+.playlist-items .accordion-button {
+    background-color: transparent;
+    color: lightgray;
+    height: 35px;
+    padding-left: 12px;
+    padding-right: 10px;
+    padding-top: 12px;
+    padding-bottom: 10px;
+    box-shadow: none !important;
+}
+
+.playlist-items .accordion-button:focus,
+.playlist-items .accordion-button:not(.collapsed) {
+    background-color: black;
+    color: orange;
+}
+
+.playlist-items .accordion-button::after {
+    filter: hue-rotate(20deg) saturate(100%) brightness(500%) !important;
+  }
+
+  .playlist-items .accordion-button:not(.collapsed)::after {
+filter: hue-rotate(20deg) saturate(100%) brightness(500%) !important;
+
+}
+
+.playlist-items .accordion-body {
+    padding: 5px;
+    background-color: transparent;
+}
+
+.playlist-group {
+    padding: 0;
+}
+
+.playlist-group-item {
+    background-color: #111;
+    color: lightgray;
+    border: 0px;
+}
+
+.playlist-group-item span {
+    padding-right: 10px;
+}
+
+.playlist-remove-btn {
+    font-size: 13px;
+}
+
+.playlist-remove-btn:hover {
+    cursor: pointer;
+    color: red;
+}
+
+
+/* PLAYLIST CREATE BTN */
+.create-play-btn {
+    color: lightgray;
+}
+
+.create-play-btn i {
+    margin-right: 10px;
+}
+
+.delete-play-btn {
+    color: lightgray;
+    margin-top: 10px;
+}
+
+.delete-play-btn i {
+    margin-right: 10px;
+}
+
+
+/* DELETE PLAYLIST */
+
+#del-playlist-checkbox {
+    transform: scale(1.2);
+    margin-right: 10px;
+}

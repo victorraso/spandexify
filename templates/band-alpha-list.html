@@ -1,0 +1,320 @@
+<!-- <div class="letter-container">
+  <h1 class="letter-title">A</h1>
+  <ul>
+    <li class="band-container">
+      <div class="band-icon">
+        <div class="band-icon-pic">
+          <img src="../static/images/autograph.jpg" alt="">
+        </div>
+        <span class="band-icon-name">Autograph</span>
+      </div>
+      <div class="band-info">
+        <div class="band-info-top">
+          <div class="band-info-btns">
+            <button class="band-disc-btn btn btn-success"><i class="bi bi-disc me-1" data-url="/albums"></i>Albums</button>
+            <button class="band-bio-btn btn btn-outline-success">Bio</button>
+            <button class="band-addfavs-btn btn btn-outline-secondary">Add +</button>
+          </div>
+          <div class="band-info-ratings">
+            <div class="band-info-your-rating dropdown">
+              <button class="btn dropdown-toggle rating-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  Rate Me
+              </button>
+              <ul class="dropdown-menu">
+                <table class="tablex">
+                  <thead>
+                      <tr>
+                          <th>Symbol</th>
+                          <th>Name</th>
+                          <th>Value</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="rating-option" data-value="5">
+                      <td class="rating-emoji">🤘</td>
+                      <td class="rating-title">Totally Legendary</td>
+                      <td class="rating-value">5</td>
+                    </tr>
+                    <tr class="rating-option" data-value="4">
+                      <td class="rating-emoji">🔥</td>
+                      <td class="rating-title">Red Hot and On Fire</td>
+                      <td class="rating-value">4</td>
+                    </tr>
+                    <tr class="rating-option" data-value="3">
+                      <td class="rating-emoji">🎸</td>
+                      <td class="rating-title">Decent, Dude</td>
+                      <td class="rating-value">3</td>
+                    </tr>
+                    <tr class="rating-option" data-value="2">
+                      <td class="rating-emoji">😐</td>
+                      <td class="rating-title">Bodaciously Bad</td>
+                      <td class="rating-value">2</td>
+                    </tr>
+                    <tr class="rating-option" data-value="1">
+                      <td class="rating-emoji">🚫</td>
+                      <td class="rating-title">Whimpers</td>
+                      <td class="rating-value">1</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </ul>
+            </div>
+            <div class="band-info-their-ratings">
+              <span class="band-ratings-average">⭐ 4.3 of 5</span>
+              <span class="band-ratings-votes">| 187 votes</span>
+            </div>
+          </div>
+        </div>
+        <div class="band-info-bottom">
+          <div class="band-info-topfive">
+            <div class="accordion" id="bandAccordion">
+              <div class="accordion-item">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#topSongs"><i class="bi bi-file-earmark-music-fill me-1"></i>Top 5 Songs
+                  </button>
+                </h2>
+                <div id="topSongs" class="accordion-collapse collapse" data-bs-parent="#bandAccordion">
+                  <div class="accordion-body">
+                    <ul class="list-group">
+                      <li class="list-group-item">
+                        <div class="list-group-item-left">
+                          <div class="list-group-item-track">
+                            1. Sweet Child O' Mine
+                          </div>
+                          <div class="list-group-item-favs">
+                            <i class="bi bi-heart"></i>
+                            <i class="bi bi-music-note-list"></i>
+                          </div>
+                        </div>
+                        <div class="list-group-item-right">
+                          <i class="bi bi-play-circle-fill"></i>
+                        </div>
+                      </li>
+                      <li class="list-group-item">
+                        <div class="list-group-item-left">
+                          <div class="list-group-item-track">
+                            2. Welcome to the Jungle
+                          </div>
+                          <div class="list-group-item-favs">
+                            <i class="bi bi-heart"></i>
+                            <i class="bi bi-music-note-list"></i>
+                          </div>
+                        </div>
+                        <div class="list-group-item-right">
+                          <i class="bi bi-play-circle-fill"></i>
+                        </div>
+                      </li>
+                      <li class="list-group-item">
+                        <div class="list-group-item-left">
+                          <div class="list-group-item-track">
+                            3. November Rain
+                          </div>
+                          <div class="list-group-item-favs">
+                            <i class="bi bi-heart"></i>
+                            <i class="bi bi-music-note-list"></i>
+                          </div>
+                        </div>
+                        <div class="list-group-item-right">
+                          <i class="bi bi-play-circle-fill"></i>
+                        </div>
+                      </li>
+                      <li class="list-group-item">
+                        <div class="list-group-item-left">
+                          <div class="list-group-item-track">
+                            4. Paradise City
+                          </div>
+                          <div class="list-group-item-favs">
+                            <i class="bi bi-heart"></i>
+                            <i class="bi bi-music-note-list"></i>
+                          </div>
+                        </div>
+                        <div class="list-group-item-right">
+                          <i class="bi bi-play-circle-fill"></i>
+                        </div>
+                      </li>
+                      <li class="list-group-item">
+                        <div class="list-group-item-left">
+                          <div class="list-group-item-track">
+                            5. Don't Cry
+                          </div>
+                          <div class="list-group-item-favs">
+                            <i class="bi bi-heart"></i>
+                            <i class="bi bi-music-note-list"></i>
+                          </div>
+                        </div>
+                        <div class="list-group-item-right">
+                          <i class="bi bi-play-circle-fill"></i>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </li>
+    <hr class="horizontal-line-dotted">
+    <li class="band-container">
+      <div class="band-icon">
+        <div class="band-icon-pic">
+          <img src="../static/images/autograph.jpg" alt="">
+        </div>
+        <span class="band-icon-name">Autograph</span>
+      </div>
+      <div class="band-info">
+        <div class="band-info-top">
+          <div class="band-info-btns">
+            <button class="band-disc-btn btn btn-success"><i class="bi bi-disc me-1"></i>Albums</button>
+            <button class="band-bio-btn btn btn-outline-success">Bio</button>
+            <button class="band-addfavs-btn btn btn-outline-secondary">Add +</button>
+          </div>
+          <div class="band-info-ratings">
+            <div class="band-info-your-rating dropdown">
+              <button class="btn dropdown-toggle rating-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  Rate Me
+              </button>
+              <ul class="dropdown-menu">
+                <table class="tablex">
+                  <thead>
+                      <tr>
+                          <th>Symbol</th>
+                          <th>Name</th>
+                          <th>Value</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="rating-option" data-value="5">
+                      <td class="rating-emoji">🤘</td>
+                      <td class="rating-title">Totally Legendary</td>
+                      <td class="rating-value">5</td>
+                    </tr>
+                    <tr class="rating-option" data-value="4">
+                      <td class="rating-emoji">🔥</td>
+                      <td class="rating-title">Red Hot and On Fire</td>
+                      <td class="rating-value">4</td>
+                    </tr>
+                    <tr class="rating-option" data-value="3">
+                      <td class="rating-emoji">🎸</td>
+                      <td class="rating-title">Decent, Dude</td>
+                      <td class="rating-value">3</td>
+                    </tr>
+                    <tr class="rating-option" data-value="2">
+                      <td class="rating-emoji">😐</td>
+                      <td class="rating-title">Bodaciously Bad</td>
+                      <td class="rating-value">2</td>
+                    </tr>
+                    <tr class="rating-option" data-value="1">
+                      <td class="rating-emoji">🚫</td>
+                      <td class="rating-title">Whimpers</td>
+                      <td class="rating-value">1</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </ul>
+            </div>
+            <div class="band-info-their-ratings">
+              <span class="band-ratings-average">⭐ 4.3 of 5</span>
+              <span class="band-ratings-votes">| 187 votes</span>
+            </div>
+          </div>
+        </div>
+        <div class="band-info-bottom">
+          <div class="band-info-topfive">
+            <div class="accordion" id="bandAccordion">
+              <div class="accordion-item">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#topSongs"><i class="bi bi-file-earmark-music-fill me-1"></i>Top 5 Songs
+                  </button>
+                </h2>
+                <div id="topSongs" class="accordion-collapse collapse" data-bs-parent="#bandAccordion">
+                  <div class="accordion-body">
+                    <ul class="list-group">
+                      <li class="list-group-item">
+                        <div class="list-group-item-left">
+                          <div class="list-group-item-track">
+                            1. Sweet Child O' Mine
+                          </div>
+                          <div class="list-group-item-favs">
+                            <i class="bi bi-heart"></i>
+                            <i class="bi bi-music-note-list"></i>
+                          </div>
+                        </div>
+                        <div class="list-group-item-right">
+                          <i class="bi bi-play-circle-fill"></i>
+                        </div>
+                      </li>
+                      <li class="list-group-item">
+                        <div class="list-group-item-left">
+                          <div class="list-group-item-track">
+                            2. Welcome to the Jungle
+                          </div>
+                          <div class="list-group-item-favs">
+                            <i class="bi bi-heart"></i>
+                            <i class="bi bi-music-note-list"></i>
+                          </div>
+                        </div>
+                        <div class="list-group-item-right">
+                          <i class="bi bi-play-circle-fill"></i>
+                        </div>
+                      </li>
+                      <li class="list-group-item">
+                        <div class="list-group-item-left">
+                          <div class="list-group-item-track">
+                            3. November Rain
+                          </div>
+                          <div class="list-group-item-favs">
+                            <i class="bi bi-heart"></i>
+                            <i class="bi bi-music-note-list"></i>
+                          </div>
+                        </div>
+                        <div class="list-group-item-right">
+                          <i class="bi bi-play-circle-fill"></i>
+                        </div>
+                      </li>
+                      <li class="list-group-item">
+                        <div class="list-group-item-left">
+                          <div class="list-group-item-track">
+                            4. Paradise City
+                          </div>
+                          <div class="list-group-item-favs">
+                            <i class="bi bi-heart"></i>
+                            <i class="bi bi-music-note-list"></i>
+                          </div>
+                        </div>
+                        <div class="list-group-item-right">
+                          <i class="bi bi-play-circle-fill"></i>
+                        </div>
+                      </li>
+                      <li class="list-group-item">
+                        <div class="list-group-item-left">
+                          <div class="list-group-item-track">
+                            5. Don't Cry
+                          </div>
+                          <div class="list-group-item-favs">
+                            <i class="bi bi-heart"></i>
+                            <i class="bi bi-music-note-list"></i>
+                          </div>
+                        </div>
+                        <div class="list-group-item-right">
+                          <i class="bi bi-play-circle-fill"></i>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </li>
+  </ul>
+</div>
+<hr class="horizontal-line">
+<div class="letter-container">
+  <h1 class="letter-title">B</h1>
+</div> -->
+<div id="alphabet-container"></div>
+

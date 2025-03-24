@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="../static/css/bootstrap.css" rel="stylesheet">
+    <link href="../static/css/index.css" rel="stylesheet">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Metal+Mania&display=swap" rel="stylesheet">
+
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+
+    <title>Spandexify</title>
+</head>
+<body>
+    <header>
+
+    </header>
+    <main>
+        <div class="container hello-box">
+            <div id="logreg" class="logreg-container text-white">
+                <p class="hello-text">
+                    <span class="fs-1 d-block">Create your ultimate 80s</span>
+                    <span class="fs-2 d-block">hard rock and hair metal</span>
+                    <span class="fs-3 d-block"></span>
+                    <span class="fs-3 d-block">collection!</span>
+                </p>
+                <h1 class="text-uppercase logo">Spandexify</h1>
+                <div class="logreg-btns">
+                    <button type="button" id="register-btn" class="btn btn-outline-primary btn-lg">Register</button>
+                    <button type="button" id="login-btn" class="btn btn-outline-success btn-lg">Log In</button>
+                </div>
+            </div>
+            <div id="login-form-container" class="form-container">
+                <div class="login-form-header">
+                    <h1 class="text-uppercase logo text-white fs-1">Spandexify</h1>
+                    <div id="return-login" class="return-button">
+                        <div class="return-button-circle">
+                            <div class="return-button-arrow"></div>
+                        </div>
+                    </div>
+                </div>
+                <form id="login-form" action="{{ url_for('user_login') }}" method="POST">
+                    <div class="form-group">
+                        <label for="login-username" class="text-white">Username<span class="error-msgs">userdummy</span></label>
+                        <input type="text" value="userdummy" id="login-username" name="login-username" class="form-control" required autocomplete="off">
+                    </div>
+            
+                    <div class="form-group">
+                        <label for="login-password" class="text-white">Password<span class="error-msgs">userDUMMY123</span></label>
+                        <input type="password" value="userDUMMY123" id="login-password" name="login-password" class="form-control" required autocomplete="off">
+                    </div>
+                    <button type="submit" id="login-go-btn" class="btn btn-success btn-lg mt-4">Log In</button>
+                </form>
+            </div>
+
+            <div id="register-form-container" class="form-container">
+                <div class="register-form-header">
+                    <h1 class="text-uppercase logo text-white fs-1">Spandexify</h1>
+                    <div id="return-register" class="return-button">
+                        <div class="return-button-circle">
+                            <div class="return-button-arrow"></div>
+                        </div>
+                    </div>
+                </div>
+                <form id="register-form" action="">
+                    <div class="form-group mb-2">
+                        <label for="register-firstname" class="text-white">First Name</label>
+                        <input type="text" id="register-firstname" name="register-firstname" class="form-control" required autocomplete="off">
+                    </div>
+                    <div class="form-group mb-2">
+                        <label for="register-lastname" class="text-white">Last Name</label>
+                        <input type="text" id="register-lastname" name="register-lastname" class="form-control" required autocomplete="off">
+                    </div>
+                    <div class="form-group mb-2">
+                        <label for="register-username" class="text-white">Username</label>
+                        <input type="text" id="register-username" name="register-username" class="form-control" required autocomplete="off">
+                    </div>
+                    <div class="form-group mb-2">
+                        <label for="register-email" class="text-white">Email<span id="email-error" class="error-msgs"></span></label>
+                        <input type="text" id="register-email" name="register-email" class="form-control" required autocomplete="off">
+                    </div>
+                    <div class="form-group mb-2">
+                        <label for="register-password" class="text-white">Password<span id="password-error" class="error-msgs"></span></label>
+                        <input type="password" id="register-password" name="register-password" class="form-control" required autocomplete="off">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="register-confirm-pass" class="text-white">Confirm Password<span id="confirm-error" class="error-msgs"></span></label>
+                        <input type="password" id="register-confirm-pass" name="register-confirm-pass" class="form-control" required autocomplete="off">
+                    </div>
+                    <button type="submit" id="register-go-btn" class="btn btn-primary btn-lg mb-3">Register</button>
+                </form>
+            </div>
+        </div>
+    </main>
+    <script src="../static/js/index.js"></script>
+</body>
+</html>

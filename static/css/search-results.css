@@ -1,0 +1,14 @@
+.bands-results-title, .albums-results-title, .songs-results-title {
+    margin-bottom: -10px;
+}
+
+.bands-results-content ul, .albums-results-content ul, .songs-results-content ul {
+    list-style-type: none;
+    /* text-transform: uppercase; */
+    /* color: orange; */
+}
+
+.bands-results-content span:hover, .albums-results-content span:hover, .songs-results-content span:hover {
+    text-decoration: underline;
+    cursor: pointer;
+}
