@@ -1,41 +1,29 @@
-import os
-from datetime import timedelta
-from dotenv import load_dotenv
-from flask import Flask, g, jsonify, make_response, redirect, render_template, request, send_from_directory, session, url_for
-from sqlalchemy import create_engine, text
+from flask import Flask, render_template, jsonify, request, url_for, session, redirect, make_response, send_from_directory
 from werkzeug.security import check_password_hash, generate_password_hash
+from dotenv import load_dotenv
+from datetime import timedelta
+from sqlalchemy import create_engine, text
+import os
 
 load_dotenv()
 
 app = Flask(__name__)
-
-# Flask Secret Key
 app.secret_key = os.urandom(24)
 
-# SQLAlchemy Database URL using mysql-connector and Aiven SSL mode requirement
+# SQLAlchemy Engine Configuration using your DATABASE_URL from .env
 DATABASE_URL = os.getenv('DATABASE_URL')
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
-engine = create_engine(DATABASE_URL)
-
-
-# Database connection scope helper
+# Helper function to get a SQLAlchemy connection
 def get_db():
-  if not hasattr(g, 'db_conn'):
-    try:
-      g.db_conn = engine.connect()
-    except Exception as err:
-      print(f'Database connection error: {err}')
-      return None
-  return g.db_conn
+    return engine.connect()
 
-
-# Close connection after each request
-@app.teardown_appcontext
+# Important: Close connection after each request
+@app.teardown_appcontext 
 def close_db(error):
-  db_conn = g.pop('db_conn', None)
-  if db_conn is not None:
-    db_conn.close()
-
+    # SQLAlchemy pooled connections automatically handle closure via context managers, 
+    # but we keep this hook compatible with the app lifecycle if needed.
+    pass
 
 # ROUTES
 @app.route('/')
@@ -114,12 +102,12 @@ def user_login():
 
 
 def get_user_credentials(username):
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('SELECT `id`, `username`, `password` FROM `users` WHERE `username` = %s', (username,))
-    user = cursor.fetchone()
-    cursor.close()
-    db.close()
+    with get_db() as conn:
+        result = conn.execute(
+            text('SELECT `id`, `username`, `password` FROM `users` WHERE `username` = :username'),
+            {'username': username}
+        )
+        user = result.fetchone()
     return user
 
 
@@ -138,38 +126,33 @@ def user_registration():
     
     hashed_pass = generate_password_hash(password)
     
-    db = get_db()
-    cursor = db.cursor()
-
-    cursor.execute(
-        'SELECT `username`, `email` FROM `users` WHERE `username` = %s OR `email` = %s', (username, email)
-    )
-    is_registered = cursor.fetchone()
-
-    if is_registered:
-        if is_registered and is_registered[0] == username:
-            return jsonify({'error': 'Username Already Exists'}), 400
-        if is_registered and is_registered[1] == email:
-            return jsonify({'error': 'Email Is Already In Use'}), 400
-
-    try:
-        cursor.execute(
-            'INSERT INTO `users` (`first_name`, `last_name`, `username`, `email`, `password`) VALUES (%s, %s, %s, %s, %s)', (first_name, last_name, username, email, hashed_pass)
+    with get_db() as db:
+        result = db.execute(
+            text('SELECT `username`, `email` FROM `users` WHERE `username` = :username OR `email` = :email'),
+            {'username': username, 'email': email}
         )
-        db.commit()
-        return jsonify({'status': 'success', 'message': 'User Registered Successfully'}), 201
-    
-    except Exception as e:
-        db.rollback()
-        return jsonify({'error': str(e)}), 500
-    
-    finally:
-        cursor.close()
-        db.close()
+        is_registered = result.fetchone()
+
+        if is_registered:
+            if is_registered[0] == username:
+                return jsonify({'error': 'Username Already Exists'}), 400
+            if is_registered[1] == email:
+                return jsonify({'error': 'Email Is Already In Use'}), 400
+
+        try:
+            db.execute(
+                text('INSERT INTO `users` (`first_name`, `last_name`, `username`, `email`, `password`) VALUES (:fn, :ln, :un, :em, :pw)'),
+                {'fn': first_name, 'ln': last_name, 'un': username, 'em': email, 'pw': hashed_pass}
+            )
+            db.commit()
+            return jsonify({'status': 'success', 'message': 'User Registered Successfully'}), 201
+        
+        except Exception as e:
+            db.rollback()
+            return jsonify({'error': str(e)}), 500
 
 
 # USER LOGOUT
-# Create a response and force a redirect to the login page
 @app.after_request
 def add_no_cache_headers(response):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
@@ -179,7 +162,7 @@ def add_no_cache_headers(response):
 
 @app.route("/user-logout")
 def user_logout():
-    session.clear()  # Remove all session data
+    session.clear()
     response = make_response(redirect(url_for('index')))
     return response
 
@@ -187,27 +170,23 @@ def user_logout():
 # BAND ALPHA LIST
 @app.route('/alpha-list')
 def alpha_list():
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-
-    try:
-        cursor.execute(
-            '''
-            SELECT 
-                `bands`.`id`, 
-                `bands`.`name`, 
-                `bands`.`icon_img`, 
-                ROUND(AVG(`band_ratings`.`rating`), 2) AS `rating`
-            FROM `bands`
-            LEFT JOIN `band_ratings` ON `bands`.`id` = `band_ratings`.`band_id`
-            GROUP BY `bands`.`id`
-            ORDER BY `bands`.`name`
-            '''
+    with get_db() as db:
+        result = db.execute(
+            text(
+                '''
+                SELECT 
+                    `bands`.`id`, 
+                    `bands`.`name`, 
+                    `bands`.`icon_img`, 
+                    ROUND(AVG(`band_ratings`.`rating`), 2) AS `rating`
+                FROM `bands`
+                LEFT JOIN `band_ratings` ON `bands`.`id` = `band_ratings`.`band_id`
+                GROUP BY `bands`.`id`
+                ORDER BY `bands`.`name`
+                '''
+            )
         )
-        bands = cursor.fetchall()
-
-    finally:
-        cursor.close()
+        bands = [dict(row._mapping) for row in result]
 
     group_bands_per_alpha = {}
     for band in bands:
@@ -230,78 +209,69 @@ def alpha_list():
 # TOP FIVE FETCH
 @app.route('/top-five/<band_name>')
 def top_five(band_name):
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+    with get_db() as db:
+        try:
+            result = db.execute(
+                text(
+                    '''
+                    SELECT `songs`.*, 
+                        ROUND(AVG(`song_ratings`.`rating`), 2) AS avg_rating
+                    FROM `songs`
+                    JOIN `albums` ON `albums`.`id` = `songs`.`album_id`
+                    JOIN `bands` ON `bands`.`id` = `albums`.`band_id`
+                    LEFT JOIN `song_ratings` ON `song_ratings`.`song_id` = `songs`.`id`
+                    WHERE `bands`.`name` = :band_name
+                    GROUP BY `songs`.`id`
+                    ORDER BY 
+                        IFNULL(AVG(`song_ratings`.`rating`), 0) DESC, 
+                        `songs`.`song_name` ASC
+                    LIMIT 5
+                    '''
+                ), {'band_name': band_name}
+            )
+            top_songs = [dict(row._mapping) for row in result]
 
-    try:
-        cursor.execute(
-            '''
-            SELECT `songs`.*, 
-                ROUND(AVG(`song_ratings`.`rating`), 2) AS avg_rating
-            FROM `songs`
-            JOIN `albums` ON `albums`.`id` = `songs`.`album_id`
-            JOIN `bands` ON `bands`.`id` = `albums`.`band_id`
-            LEFT JOIN `song_ratings` ON `song_ratings`.`song_id` = `songs`.`id`
-            WHERE `bands`.`name` = %s
-            GROUP BY `songs`.`id`
-            ORDER BY 
-                IFNULL(AVG(`song_ratings`.`rating`), 0 ) DESC, 
-                `songs`.`song_name` ASC
-            LIMIT 5
-            ''', (band_name,)
-        )
-        top_songs = cursor.fetchall()
+            if not top_songs:
+                return jsonify({"error": "No songs found for this band"}), 404
+            
+            for song in top_songs:
+                if isinstance(song['song_length'], timedelta):
+                    minutes, seconds = divmod(song['song_length'].seconds, 60)
+                    song['song_length'] = f'{minutes:02}:{seconds:02}'
+            
+            return jsonify(top_songs)
 
-        if not top_songs:
-            return jsonify({"error": "No songs found for this band"}), 404
-        
-        # convert song length into string in order to send with json
-        for song in top_songs:
-            # checks if song length is from the class/type timedelta
-            if isinstance(song['song_length'], timedelta):
-                minutes, seconds = divmod(song['song_length'].seconds, 60)
-                song['song_length'] = f'{minutes:02}:{seconds:02}'
-        
-        return jsonify(top_songs)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-    finally:
-        cursor.close()
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
 
 # ALBUMS AND BAND DATA FETCH
 @app.route('/albums-band-data/<band_name>')
 def albums_band_data(band_name):
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-
-    try:
-        cursor.execute(
-            '''
-            SELECT 
-                `bands`.`id` AS band_id, 
-                `bands`.`name` AS band_name, 
-                `bands`.`page_img`, 
-                `albums`.`id` AS album_id, 
-                `albums`.`title` AS album_title, 
-                `albums`.`year_release` AS album_release, 
-                `albums`.`album_img`, 
-                `songs`.`id` AS song_id, 
-                `songs`.`song_name`, 
-                `songs`.`track_number`, 
-                `songs`.`song_length`
-            FROM `bands`
-            JOIN `albums` ON `albums`.`band_id` = `bands`.`id`
-            LEFT JOIN `songs` ON `songs`.`album_id` = `albums`.`id`
-            WHERE `bands`.`name` = %s
-            ''', (band_name,)
+    with get_db() as db:
+        result = db.execute(
+            text(
+                '''
+                SELECT 
+                    `bands`.`id` AS band_id, 
+                    `bands`.`name` AS band_name, 
+                    `bands`.`page_img`, 
+                    `albums`.`id` AS album_id, 
+                    `albums`.`title` AS album_title, 
+                    `albums`.`year_release` AS album_release, 
+                    `albums`.`album_img`, 
+                    `songs`.`id` AS song_id, 
+                    `songs`.`song_name`, 
+                    `songs`.`track_number`, 
+                    `songs`.`song_length`
+                FROM `bands`
+                JOIN `albums` ON `albums`.`band_id` = `bands`.`id`
+                LEFT JOIN `songs` ON `songs`.`album_id` = `albums`.`id`
+                WHERE `bands`.`name` = :band_name
+                '''
+            ), {'band_name': band_name}
         )
-        albums = cursor.fetchall()
-
-    finally:
-        cursor.close()
+        albums = [dict(row._mapping) for row in result]
 
     band_data = {
         'band_id': None,
@@ -315,7 +285,6 @@ def albums_band_data(band_name):
             minutes, seconds = divmod(album['song_length'].seconds, 60)
             album['song_length'] = f'{minutes:02}:{seconds:02}'
 
-        # Set band info only once
         if band_data['band_id'] is None:
             band_data['band_id'] = album['band_id']
             band_data['band_name'] = album['band_name']
@@ -345,42 +314,41 @@ def albums_band_data(band_name):
 # BIO FETCH AND BAND MEMBERS
 @app.route('/bio-data/<band_name>')
 def bio_data(band_name):
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-
-    try:
-        cursor.execute(
-            '''
-            SELECT 
-            `bands`.`id`,
-            `bands`.`name`,
-            `bands`.`logo_img`,
-            `biographies`.`bio`
-            FROM `bands`
-            JOIN `biographies` ON `biographies`.`band_id` = `bands`.`id`
-            WHERE `bands`.`name` = %s;
-            ''', (band_name,)
+    with get_db() as db:
+        result = db.execute(
+            text(
+                '''
+                SELECT 
+                `bands`.`id`,
+                `bands`.`name`,
+                `bands`.`logo_img`,
+                `biographies`.`bio`
+                FROM `bands`
+                JOIN `biographies` ON `biographies`.`band_id` = `bands`.`id`
+                WHERE `bands`.`name` = :band_name;
+                '''
+            ), {'band_name': band_name}
         )
-        band_info = cursor.fetchone()
+        band_info = result.fetchone()
 
         if not band_info:
-            db.close()
             return jsonify({'error': 'Band Bio Not Found'}), 404
+        
+        band_info = dict(band_info._mapping)
     
-        cursor.execute(
-            '''
-            SELECT
-            `musicians`.`name`,
-            `musicians`.`instrument`
-            FROM `band_members`
-            JOIN `musicians` ON `musicians`.`id` = `band_members`.`musician_id`
-            WHERE `band_members`.`band_id` = %s;
-            ''', (band_info['id'],)
+        result_members = db.execute(
+            text(
+                '''
+                SELECT
+                `musicians`.`name`,
+                `musicians`.`instrument`
+                FROM `band_members`
+                JOIN `musicians` ON `musicians`.`id` = `band_members`.`musician_id`
+                WHERE `band_members`.`band_id` = :band_id;
+                '''
+            ), {'band_id': band_info['id']}
         )
-        members = cursor.fetchall()
-
-    finally:
-        cursor.close()
+        members = [dict(row._mapping) for row in result_members]
 
     return jsonify({
         'band_id': band_info['id'],
@@ -394,103 +362,91 @@ def bio_data(band_name):
 # FETCH PLAYLIST AND SONGS FOR USER PLAYLISTS LIST
 @app.route('/fetch-full-playlists')
 def fetch_full_playlists():
-    
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+    with get_db() as db:
+        try:
+            result = db.execute(
+                text(
+                    '''
+                    SELECT 
+                        `playlists`.`id` AS `playlist_id`,
+                        `playlists`.`playlist_name`,
+                        `songs`.`id` AS `song_id`,
+                        `songs`.`song_name`,
+                        `bands`.`name` AS `band_name`
+                    FROM `playlists`
+                    LEFT JOIN `playlist_songs` ON `playlists`.`id` = `playlist_songs`.`playlist_id`
+                    LEFT JOIN `songs` ON `playlist_songs`.`song_id` = `songs`.`id`
+                    LEFT JOIN `albums` ON `songs`.`album_id` = `albums`.`id`
+                    LEFT JOIN `bands` ON `albums`.`band_id` = `bands`.`id`
+                    WHERE `playlists`.`user_id` = :user_id;
+                    '''
+                ), {'user_id': session['user_id']}
+            )
+            playlists_with_songs = [dict(row._mapping) for row in result]
 
-    try:
-        cursor.execute(
-            '''
-            SELECT 
-                `playlists`.`id` AS `playlist_id`,
-                `playlists`.`playlist_name`,
-                `songs`.`id` AS `song_id`, #Added song id
-                `songs`.`song_name`,
-                `bands`.`name` AS `band_name`
-            FROM `playlists`
-            LEFT JOIN `playlist_songs` ON `playlists`.`id` = `playlist_songs`.`playlist_id`
-            LEFT JOIN `songs` ON `playlist_songs`.`song_id` = `songs`.`id`
-            LEFT JOIN `albums` ON `songs`.`album_id` = `albums`.`id`
-            LEFT JOIN `bands` ON `albums`.`band_id` = `bands`.`id`
-            WHERE `playlists`.`user_id` = %s;
-            ''', (session['user_id'],)
-        )
-        playlists_with_songs = cursor.fetchall()
+            playlists = {}
+            for playlist in playlists_with_songs:
+                playlist_id = playlist['playlist_id']
+                playlist_name = playlist['playlist_name']
+                song_name = playlist['song_name']
+                band_name = playlist['band_name']
+                song_id = playlist['song_id']
 
-        playlists = {}
-        for playlist in playlists_with_songs:
-            playlist_id = playlist['playlist_id'] #Get the playlist_id
-            playlist_name = playlist['playlist_name']
-            song_name = playlist['song_name']
-            band_name = playlist['band_name']
-            song_id = playlist['song_id'] #get song id
+                if playlist_name not in playlists:
+                    playlists[playlist_name] = {"playlist_id": playlist_id, "playlist_name": playlist_name, "songs": []}
 
-            if playlist_name not in playlists:
-                playlists[playlist_name] = {"playlist_id": playlist_id, "playlist_name": playlist_name, "songs": []} #add playlist id
+                if song_name:
+                    playlists[playlist_name]["songs"].append({"song_name": song_name, "band_name": band_name, "song_id": song_id})
+                else:
+                    playlists[playlist_name]["songs"].append({"song_name": "Playlist is empty", "band_name": None, "song_id": None})
 
-            if song_name:
-                playlists[playlist_name]["songs"].append({"song_name": song_name, "band_name": band_name, "song_id":song_id}) #add song id
-            else:
-                playlists[playlist_name]["songs"].append({"song_name": "Playlist is empty", "band_name": None, "song_id": None})
+            playlists_data = list(playlists.values())
+            return jsonify(playlists_data)
 
-        playlists_data = list(playlists.values())
-
-        return jsonify(playlists_data)
-
-    except Exception as e:
-        print(f"Error occurred: {e}")
-        return jsonify({"error": "An error occurred while fetching playlists."}), 500
-
-    finally:
-        cursor.close()
+        except Exception as e:
+            print(f"Error occurred: {e}")
+            return jsonify({"error": "An error occurred while fetching playlists."}), 500
 
 
 # CREATE PLAYLIST
 @app.route('/create-playlist', methods=['POST'])
 def create_playlist():
-    db = get_db()
-    cursor = db.cursor()
-
     data = request.get_json()
     playlist_name = data.get('playlist_name')
 
-    try:
-        cursor.execute(
-            '''
-            INSERT INTO `playlists`
-            (playlist_name, user_id)
-            VALUES
-            (%s, %s)
-            ''', (playlist_name, session['user_id'])
-        )
-        db.commit()
-        return jsonify({'message': 'Playlist created successfully'})
+    with get_db() as db:
+        try:
+            db.execute(
+                text(
+                    '''
+                    INSERT INTO `playlists`
+                    (`playlist_name`, `user_id`)
+                    VALUES
+                    (:p_name, :u_id)
+                    '''
+                ), {'p_name': playlist_name, 'u_id': session['user_id']}
+            )
+            db.commit()
+            return jsonify({'message': 'Playlist created successfully'})
 
-    except Exception as e:
-        db.rollback()
-        return jsonify({'error': str(e)}), 500
-    
-    finally:
-        cursor.close()
+        except Exception as e:
+            db.rollback()
+            return jsonify({'error': str(e)}), 500
 
 
 # FETCH EXISTING PLAYLISTS NAMES
 @app.route('/get-playlists')
 def get_playlists():
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-
-    try:
-        cursor.execute(
-            '''
-            SELECT * FROM `playlists`
-            WHERE `user_id` = %s;
-            ''', (session['user_id'],)
+    with get_db() as db:
+        result = db.execute(
+            text(
+                '''
+                SELECT * FROM `playlists`
+                WHERE `user_id` = :user_id;
+                '''
+            ), {'user_id': session['user_id']}
         )
-        playlists = cursor.fetchall()
-
-    finally:
-        cursor.close()
+        playlists = [dict(row._mapping) for row in result]
 
     return jsonify(playlists)
 
@@ -498,30 +454,29 @@ def get_playlists():
 # DELETE PLAYLISTS
 @app.route('/delete-playlists', methods=['POST'])
 def delete_playlists():
-    data = request.get_json()  # Get the data from the request (the playlist IDs)
-    playlist_ids = data.get('ids', [])  # Extract the list of IDs
+    data = request.get_json()
+    playlist_ids = data.get('ids', [])
 
     if not playlist_ids:
         return jsonify({'error': 'No playlist selected'}), 400
     
-    db = get_db()
-    cursor = db.cursor()
-
-    try:
-        cursor.executemany(
-            '''
-            DELETE FROM `playlists`
-            WHERE `id` = %s AND `user_id` = %s;
-            ''', [(playlist_id, session['user_id']) for playlist_id in playlist_ids]
-        )
-        db.commit()
-        return jsonify({'message': 'playlists delete with success'})
-    
-    except Exception as e:
-        db.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        cursor.close()
+    with get_db() as db:
+        try:
+            for pid in playlist_ids:
+                db.execute(
+                    text(
+                        '''
+                        DELETE FROM `playlists`
+                        WHERE `id` = :pid AND `user_id` = :uid;
+                        '''
+                    ), {'pid': pid, 'uid': session['user_id']}
+                )
+            db.commit()
+            return jsonify({'message': 'playlists delete with success'})
+        
+        except Exception as e:
+            db.rollback()
+            return jsonify({"error": str(e)}), 500
 
 
 # ADD SONG TO PLAYLIST
@@ -535,61 +490,56 @@ def add_song_to_playlist():
     if not all([playlist_id, song_name, band_name]):
         return jsonify({'error': 'Missing data'}), 400
 
-    db = get_db()
-    cursor = db.cursor()
+    with get_db() as db:
+        try:
+            result = db.execute(
+                text(
+                    '''
+                    SELECT `songs`.`id`
+                    FROM `songs`
+                    JOIN `albums` ON `songs`.`album_id` = `albums`.`id`
+                    JOIN `bands` ON `albums`.`band_id` = `bands`.`id`
+                    WHERE `songs`.`song_name` = :s_name AND `bands`.`name` = :b_name
+                    '''
+                ), {'s_name': song_name, 'b_name': band_name}
+            )
+            song_result = result.fetchone()
 
-    try:
-        # Find the song_id
-        cursor.execute(
-            '''
-            SELECT `songs`.`id`
-            FROM `songs`
-            JOIN `albums` ON `songs`.`album_id` = `albums`.`id`
-            JOIN `bands` ON `albums`.`band_id` = `bands`.`id`
-            WHERE `songs`.`song_name` = %s AND `bands`.`name` = %s
-            ''',
-            (song_name, band_name)
-        )
-        song_result = cursor.fetchone()
+            if not song_result:
+                return jsonify({'error': 'Song not found'}), 404
 
-        if not song_result:
-            return jsonify({'error': 'Song not found'}), 404
+            song_id = song_result[0]
 
-        song_id = song_result[0]
+            exist_res = db.execute(
+                text(
+                    '''
+                    SELECT 1
+                    FROM `playlist_songs`
+                    WHERE `playlist_id` = :pid AND `song_id` = :sid
+                    '''
+                ), {'pid': playlist_id, 'sid': song_id}
+            )
+            existing_song = exist_res.fetchone()
 
-        # Check if the song is already in the playlist
-        cursor.execute(
-            '''
-            SELECT 1
-            FROM `playlist_songs`
-            WHERE `playlist_id` = %s AND `song_id` = %s
-            ''',
-            (playlist_id, song_id)
-        )
-        existing_song = cursor.fetchone()
+            if existing_song:
+                return jsonify({'message': 'Song already in playlist'})
 
-        if existing_song:
-            return jsonify({'message': 'Song already in playlist'})
+            db.execute(
+                text(
+                    '''
+                    INSERT INTO `playlist_songs` (`playlist_id`, `song_id`)
+                    VALUES (:pid, :sid)
+                    '''
+                ), {'pid': playlist_id, 'sid': song_id}
+            )
+            db.commit()
 
-        # Insert into playlist_songs (only if not already present)
-        cursor.execute(
-            '''
-            INSERT INTO `playlist_songs` (`playlist_id`, `song_id`)
-            VALUES (%s, %s)
-            ''',
-            (playlist_id, song_id)
-        )
-        db.commit()
+            return jsonify({'message': 'Song added to playlist'})
 
-        return jsonify({'message': 'Song added to playlist'})
-
-    except Exception as e:
-        print(f"Error adding song to playlist: {e}")
-        db.rollback()
-        return jsonify({'error': 'An error occurred'}), 500
-
-    finally:
-        cursor.close()
+        except Exception as e:
+            print(f"Error adding song to playlist: {e}")
+            db.rollback()
+            return jsonify({'error': 'An error occurred'}), 500
 
 
 # REMOVE SONG FROM PLAYLIST
@@ -599,27 +549,24 @@ def remove_song_from_playlist():
     playlist_id = data['playlist_id']
     song_id = data['song_id']
 
-    db = get_db()
-    cursor = db.cursor()
-
-    try:
-        cursor.execute(
-            '''
-            DELETE FROM `playlist_songs`
-            WHERE `playlist_id` = %s
-            AND
-            `song_id` = %s
-            ''', (playlist_id, song_id)
-        )
-        db.commit()
-        return jsonify({'message': 'Song remove with success'}), 200
-    
-    except Exception as e:
-        db.rollback()
-        return jsonify({'error': 'Failed to remove song from playlist'}), 500
-    
-    finally:
-        cursor.close()
+    with get_db() as db:
+        try:
+            db.execute(
+                text(
+                    '''
+                    DELETE FROM `playlist_songs`
+                    WHERE `playlist_id` = :pid
+                    AND
+                    `song_id` = :sid
+                    '''
+                ), {'pid': playlist_id, 'sid': song_id}
+            )
+            db.commit()
+            return jsonify({'message': 'Song remove with success'}), 200
+        
+        except Exception as e:
+            db.rollback()
+            return jsonify({'error': 'Failed to remove song from playlist'}), 500
 
 
 # ADD SONG TO FAVORITES
@@ -632,41 +579,33 @@ def add_song_to_favorites():
     if not user_id:
         return jsonify({'error': 'User not authenticated'}), 401
 
-    db = get_db()
-    cursor = db.cursor()
-
-    try:
-        # Check if the song is already in favorites
-        cursor.execute(
-            'SELECT `id` FROM `favorite_songs` WHERE `user_id` = %s AND `song_id` = %s',
-            (user_id, song_id)
-        )
-        existing_favorite = cursor.fetchone()
-
-        if existing_favorite:
-            # If the song is already a favorite, remove it
-            cursor.execute(
-                'DELETE FROM `favorite_songs` WHERE `user_id` = %s AND `song_id` = %s',
-                (user_id, song_id)
+    with get_db() as db:
+        try:
+            res = db.execute(
+                text('SELECT `id` FROM `favorite_songs` WHERE `user_id` = :uid AND `song_id` = :sid'),
+                {'uid': user_id, 'sid': song_id}
             )
-            db.commit()
-            return jsonify({'message': 'Song removed from favorites'}), 200
-        else:
-            # If the song is not a favorite, add it
-            cursor.execute(
-                'INSERT INTO `favorite_songs` (user_id, song_id) VALUES (%s, %s)',
-                (user_id, song_id)
-            )
-            db.commit()
-            return jsonify({'message': 'Song added to favorites'}), 200
+            existing_favorite = res.fetchone()
 
-    except Exception as e:
-        db.rollback()
-        print(f"Error adding/removing song to favorites: {e}")
-        return jsonify({'error': 'Failed to add/remove song to favorites'}), 500
+            if existing_favorite:
+                db.execute(
+                    text('DELETE FROM `favorite_songs` WHERE `user_id` = :uid AND `song_id` = :sid'),
+                    {'uid': user_id, 'sid': song_id}
+                )
+                db.commit()
+                return jsonify({'message': 'Song removed from favorites'}), 200
+            else:
+                db.execute(
+                    text('INSERT INTO `favorite_songs` (`user_id`, `song_id`) VALUES (:uid, :sid)'),
+                    {'uid': user_id, 'sid': song_id}
+                )
+                db.commit()
+                return jsonify({'message': 'Song added to favorites'}), 200
 
-    finally:
-        cursor.close()
+        except Exception as e:
+            db.rollback()
+            print(f"Error adding/removing song to favorites: {e}")
+            return jsonify({'error': 'Failed to add/remove song to favorites'}), 500
 
 
 # GET ALL FAVORITE SONGS
@@ -677,35 +616,31 @@ def get_all_favorite_songs():
     if not user_id:
         return jsonify({'error': 'Unauthorized'}), 401
 
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+    with get_db() as db:
+        try:
+            result = db.execute(
+                text(
+                    '''
+                    SELECT
+                        `songs`.`id` AS song_id,
+                        `songs`.`song_name`,
+                        `bands`.`name` AS band_name,
+                        `albums`.`id` AS album_id
+                    FROM `favorite_songs`
+                    JOIN `songs` ON `favorite_songs`.`song_id` = `songs`.`id`
+                    JOIN `albums` ON `songs`.`album_id` = `albums`.`id`
+                    JOIN `bands` ON `albums`.`band_id` = `bands`.`id`
+                    WHERE `favorite_songs`.`user_id` = :uid;
+                    '''
+                ), {'uid': user_id}
+            )
 
-    try:
-        cursor.execute(
-            '''
-            SELECT
-                `songs`.`id` AS song_id,
-                `songs`.`song_name`,
-                `bands`.`name` AS band_name,
-                `albums`.`id` AS album_id
-            FROM `favorite_songs`
-            JOIN `songs` ON `favorite_songs`.`song_id` = `songs`.`id`
-            JOIN `albums` ON `songs`.`album_id` = `albums`.`id`
-            JOIN `bands` ON `albums`.`band_id` = `bands`.`id`
-            WHERE `favorite_songs`.`user_id` = %s;
-            ''',
-            (user_id,)
-        )
+            favorite_songs = [dict(row._mapping) for row in result]
+            return jsonify({'favorite_songs': favorite_songs})
 
-        favorite_songs = cursor.fetchall()
-        return jsonify({'favorite_songs': favorite_songs})
-
-    except Exception as e:
-        print(f'Error: {e}')
-        return jsonify({'error': 'Failed to fetch favorite songs'}), 500
-
-    finally:
-        cursor.close()
+        except Exception as e:
+            print(f'Error: {e}')
+            return jsonify({'error': 'Failed to fetch favorite songs'}), 500
 
 
 # ADD ALBUM TO FAVORITES
@@ -718,41 +653,33 @@ def add_album_to_favorites():
     if not user_id:
         return jsonify({'error': 'User not authenticated'}), 401
 
-    db = get_db()
-    cursor = db.cursor()
-
-    try:
-        # Check if the album is already in favorites
-        cursor.execute(
-            'SELECT `id` FROM `favorite_albums` WHERE `user_id` = %s AND `album_id` = %s',
-            (user_id, album_id)
-        )
-        existing_favorite = cursor.fetchone()
-
-        if existing_favorite:
-            # If the album is already a favorite, remove it
-            cursor.execute(
-                'DELETE FROM `favorite_albums` WHERE `user_id` = %s AND `album_id` = %s',
-                (user_id, album_id)
+    with get_db() as db:
+        try:
+            res = db.execute(
+                text('SELECT `id` FROM `favorite_albums` WHERE `user_id` = :uid AND `album_id` = :aid'),
+                {'uid': user_id, 'aid': album_id}
             )
-            db.commit()
-            return jsonify({'message': 'Album removed from favorites'}), 200
-        else:
-            # If the album is not a favorite, add it
-            cursor.execute(
-                'INSERT INTO `favorite_albums` (user_id, album_id) VALUES (%s, %s)',
-                (user_id, album_id)
-            )
-            db.commit()
-            return jsonify({'message': 'Album added to favorites'}), 200
+            existing_favorite = res.fetchone()
 
-    except Exception as e:
-        db.rollback()
-        print(f"Error adding/removing album to favorites: {e}")
-        return jsonify({'error': 'Failed to add/remove album to favorites'}), 500
+            if existing_favorite:
+                db.execute(
+                    text('DELETE FROM `favorite_albums` WHERE `user_id` = :uid AND `album_id` = :aid'),
+                    {'uid': user_id, 'aid': album_id}
+                )
+                db.commit()
+                return jsonify({'message': 'Album removed from favorites'}), 200
+            else:
+                db.execute(
+                    text('INSERT INTO `favorite_albums` (`user_id`, `album_id`) VALUES (:uid, :aid)'),
+                    {'uid': user_id, 'aid': album_id}
+                )
+                db.commit()
+                return jsonify({'message': 'Album added to favorites'}), 200
 
-    finally:
-        cursor.close()
+        except Exception as e:
+            db.rollback()
+            print(f"Error adding/removing album to favorites: {e}")
+            return jsonify({'error': 'Failed to add/remove album to favorites'}), 500
 
 
 # GET ALL USER FAVORITE ALBUMS
@@ -763,33 +690,29 @@ def get_all_favorite_albums():
     if not user_id:
         return jsonify({'error': 'Unauthorized'}), 401
 
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+    with get_db() as db:
+        try:
+            result = db.execute(
+                text(
+                    '''
+                    SELECT
+                        `bands`.`name` AS band_name,
+                        `album_id`,
+                        `albums`.`title` AS album_name
+                    FROM `favorite_albums`
+                    JOIN `albums` ON `albums`.`id` = `favorite_albums`.`album_id`
+                    JOIN `bands` ON `albums`.`band_id` = `bands`.`id`
+                    WHERE `favorite_albums`.`user_id` = :uid;
+                    '''
+                ), {'uid': user_id}
+            )
 
-    try:
-        cursor.execute(
-            '''
-            SELECT
-                `bands`.`name` AS band_name,
-                `album_id`,
-                `albums`.`title` AS album_name
-            FROM `favorite_albums`
-            JOIN `albums` ON `albums`.`id` = `favorite_albums`.`album_id`
-            JOIN `bands` ON `albums`.`band_id` = `bands`.`id`
-            WHERE `favorite_albums`.`user_id` = %s;
-            ''',
-            (user_id,)
-        )
+            favorite_albums = [dict(row._mapping) for row in result]
+            return jsonify({'favorite_albums': favorite_albums})
 
-        favorite_albums = cursor.fetchall()
-        return jsonify({'favorite_albums': favorite_albums})
-
-    except Exception as e:
-        print(f'Error: {e}')
-        return jsonify({'error': 'Failed to fetch favorite albums'}), 500
-
-    finally:
-        cursor.close()
+        except Exception as e:
+            print(f'Error: {e}')
+            return jsonify({'error': 'Failed to fetch favorite albums'}), 500
 
 
 # ADD BAND TO FAVORITES
@@ -802,41 +725,33 @@ def add_band_to_favorites():
     if not user_id:
         return jsonify({'error': 'User not authenticated'}), 401
 
-    db = get_db()
-    cursor = db.cursor()
-
-    try:
-        # Check if the band is already in favorites
-        cursor.execute(
-            'SELECT `id` FROM `favorite_bands` WHERE `user_id` = %s AND `band_id` = %s',
-            (user_id, band_id)
-        )
-        existing_favorite = cursor.fetchone()
-
-        if existing_favorite:
-            # If the band is already a favorite, remove it
-            cursor.execute(
-                'DELETE FROM `favorite_bands` WHERE `user_id` = %s AND `band_id` = %s',
-                (user_id, band_id)
+    with get_db() as db:
+        try:
+            res = db.execute(
+                text('SELECT `id` FROM `favorite_bands` WHERE `user_id` = :uid AND `band_id` = :bid'),
+                {'uid': user_id, 'bid': band_id}
             )
-            db.commit()
-            return jsonify({'message': 'Band removed from favorites'}), 200
-        else:
-            # If the band is not a favorite, add it
-            cursor.execute(
-                'INSERT INTO `favorite_bands` (user_id, band_id) VALUES (%s, %s)',
-                (user_id, band_id)
-            )
-            db.commit()
-            return jsonify({'message': 'Band added to favorites'}), 200
+            existing_favorite = res.fetchone()
 
-    except Exception as e:
-        db.rollback()
-        print(f"Error adding/removing band to favorites: {e}")
-        return jsonify({'error': 'Failed to add/remove band to favorites'}), 500
+            if existing_favorite:
+                db.execute(
+                    text('DELETE FROM `favorite_bands` WHERE `user_id` = :uid AND `band_id` = :bid'),
+                    {'uid': user_id, 'bid': band_id}
+                )
+                db.commit()
+                return jsonify({'message': 'Band removed from favorites'}), 200
+            else:
+                db.execute(
+                    text('INSERT INTO `favorite_bands` (`user_id`, `band_id`) VALUES (:uid, :bid)'),
+                    {'uid': user_id, 'bid': band_id}
+                )
+                db.commit()
+                return jsonify({'message': 'Band added to favorites'}), 200
 
-    finally:
-        cursor.close()
+        except Exception as e:
+            db.rollback()
+            print(f"Error adding/removing band to favorites: {e}")
+            return jsonify({'error': 'Failed to add/remove band to favorites'}), 500
 
 
 # FETCH ALL FAVORITES BANDS
@@ -847,98 +762,92 @@ def get_all_favorite_bands():
     if not user_id:
         return jsonify({'error': 'Unauthorized'}), 401
 
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+    with get_db() as db:
+        try:
+            result = db.execute(
+                text(
+                    '''
+                    SELECT
+                        `bands`.`name` AS band_name,
+                        `band_id`
+                    FROM `favorite_bands`
+                    JOIN `bands` ON `favorite_bands`.`band_id` = `bands`.`id`
+                    WHERE `favorite_bands`.`user_id` = :uid;
+                    '''
+                ), {'uid': user_id}
+            )
 
-    try:
-        cursor.execute(
-            '''
-            SELECT
-                `bands`.`name` AS band_name,
-                `band_id`
-            FROM `favorite_bands`
-            JOIN `bands` ON `favorite_bands`.`band_id` = `bands`.`id`
-            WHERE `favorite_bands`.`user_id` = %s;
-            ''',
-            (user_id,)
-        )
+            favorite_bands = [dict(row._mapping) for row in result]
+            return jsonify({'favorite_bands': favorite_bands})
 
-        favorite_bands = cursor.fetchall()
-        return jsonify({'favorite_bands': favorite_bands})
-
-    except Exception as e:
-        print(f'Error: {e}')
-        return jsonify({'error': 'Failed to fetch favorite bands'}), 500
-
-    finally:
-        cursor.close()
+        except Exception as e:
+            print(f'Error: {e}')
+            return jsonify({'error': 'Failed to fetch favorite bands'}), 500
 
 
 # INPUT SEARCH QUERY
 @app.route('/input-search')
 def input_search():
-    query = request.args.get('query', '') # '' ensures the query is never none
+    query = request.args.get('query', '')
 
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+    with get_db() as db:
+        try:
+            res_bands = db.execute(
+                text(
+                    '''
+                    SELECT
+                        `id`,
+                        `name`
+                    FROM `bands`
+                    WHERE `name` LIKE :q1
+                       OR SOUNDEX(`name`) = SOUNDEX(:q2);
+                    '''
+                ), {'q1': '%' + query + '%', 'q2': query}
+            )
+            bands = [dict(row._mapping) for row in res_bands]
 
-    try:
-        # fetch bands
-        cursor.execute(
-            '''
-            SELECT
-                `id`,
-                `name`
-            FROM `bands`
-            WHERE `name` LIKE %s
-               OR SOUNDEX(`name`) = SOUNDEX(%s);
-            ''', ('%' + query + '%', query)
-        )
-        bands = cursor.fetchall()
+            res_albums = db.execute(
+                text(
+                    '''
+                    SELECT
+                        `albums`.`id`,
+                        `albums`.`title` AS album_name,
+                        `bands`.`id` AS band_id,
+                        `bands`.`name` AS band_name
+                    FROM `albums`
+                    JOIN `bands` ON `bands`.`id` = `albums`.`band_id`
+                    WHERE `title` LIKE :q1
+                       OR SOUNDEX(`title`) = SOUNDEX(:q2);
+                    '''
+                ), {'q1': '%' + query + '%', 'q2': query}
+            )
+            albums = [dict(row._mapping) for row in res_albums]
 
-        # fetch albums
-        cursor.execute(
-            '''
-            SELECT
-                `albums`.`id`,
-                `albums`.`title` AS album_name,
-                `bands`.`id` AS band_id,
-                `bands`.`name` AS band_name
-            FROM `albums`
-            JOIN `bands` ON `bands`.`id` = `albums`.`band_id`
-            WHERE `title` LIKE %s
-               OR SOUNDEX(`title`) = SOUNDEX(%s);
-            ''', ('%' + query + '%', query)
-        )
-        albums = cursor.fetchall()
+            res_songs = db.execute(
+                text(
+                    '''
+                    SELECT
+                        `songs`.`id`,
+                        `songs`.`song_name`,
+                        `albums`.`id` AS album_id,
+                        `albums`.`title` AS album_name,
+                        `bands`.`id` AS band_id,
+                        `bands`.`name` AS band_name
+                    FROM `songs`
+                    JOIN `albums` ON `albums`.`id` = `songs`.`album_id`
+                    JOIN `bands` ON `bands`.`id` = `albums`.`band_id`
+                    WHERE `song_name` LIKE :q1
+                       OR SOUNDEX(`song_name`) = SOUNDEX(:q2);
+                    '''
+                ), {'q1': '%' + query + '%', 'q2': query}
+            )
+            songs = [dict(row._mapping) for row in res_songs]
 
-        # fetch songs
-        cursor.execute(
-            '''
-            SELECT
-                `songs`.`id`,
-                `songs`.`song_name`,
-                `albums`.`id` AS album_id,
-                `albums`.`title` AS album_name,
-                `bands`.`id` AS band_id,
-                `bands`.`name` AS band_name
-            FROM `songs`
-            JOIN `albums` ON `albums`.`id` = `songs`.`album_id`
-            JOIN `bands` ON `bands`.`id` = `albums`.`band_id`
-            WHERE `song_name` LIKE %s
-               OR SOUNDEX(`song_name`) = SOUNDEX(%s);
-            ''', ('%' + query + '%', query)
-        )
-        songs = cursor.fetchall()
+            return jsonify({'bands': bands, 'albums': albums, 'songs': songs})
 
-        return jsonify({'bands': bands, 'albums': albums, 'songs': songs})
+        except Exception as e:
+            return jsonify({'error': 'Failed to fetch info for input search query'}), 500
 
-    except Exception as e:
-        return jsonify({'error': 'Failed to fetch info for input search query'}), 500
-
-    finally:
-        cursor.close()
-    
 
 # ADD BAND RATING
 @app.route('/add-band-rating', methods=['POST'])
@@ -951,49 +860,41 @@ def add_band_rating():
     if not user_id:
         return jsonify({'error': 'User not authenticated'}), 401
 
-    db = get_db()
-    cursor = db.cursor()
-
-    try:
-        # Check if the band is already rated
-        cursor.execute(
-            '''
-            SELECT `band_id` FROM `band_ratings` WHERE `user_id` = %s AND `band_id` = %s;
-            ''',
-            (user_id, band_id)
-        )
-        band_is_rated = cursor.fetchone()
-
-        if band_is_rated:
-            # If the band is already rated change rate to new value
-            cursor.execute(
-                '''
-                UPDATE `band_ratings`
-                SET `rating` = %s
-                WHERE `user_id` = %s
-                AND `band_id` = %s;
-                ''',
-                (rating_value, user_id, band_id)
+    with get_db() as db:
+        try:
+            res = db.execute(
+                text('SELECT `band_id` FROM `band_ratings` WHERE `user_id` = :uid AND `band_id` = :bid;'),
+                {'uid': user_id, 'bid': band_id}
             )
-            db.commit()
-            return jsonify({'message': 'Band rating updated'}), 200
-        else:
-            # If the band is not rated
-            cursor.execute(
-                '''
-                INSERT INTO `band_ratings` (user_id, band_id, rating) VALUES (%s, %s, %s);
-                ''',
-                (user_id, band_id, rating_value)
-            )
-            db.commit()
-            return jsonify({'message': 'Rating added to the band'}), 200
+            band_is_rated = res.fetchone()
 
-    except Exception as e:
-        db.rollback()
-        return jsonify({'error': 'Failed to add/update band rating'}), 500
+            if band_is_rated:
+                db.execute(
+                    text(
+                        '''
+                        UPDATE `band_ratings`
+                        SET `rating` = :val
+                        WHERE `user_id` = :uid
+                        AND `band_id` = :bid;
+                        '''
+                    ), {'val': rating_value, 'uid': user_id, 'bid': band_id}
+                )
+                db.commit()
+                return jsonify({'message': 'Band rating updated'}), 200
+            else:
+                db.execute(
+                    text(
+                        '''
+                        INSERT INTO `band_ratings` (`user_id`, `band_id`, `rating`) VALUES (:uid, :bid, :val);
+                        '''
+                    ), {'uid': user_id, 'bid': band_id, 'val': rating_value}
+                )
+                db.commit()
+                return jsonify({'message': 'Rating added to the band'}), 200
 
-    finally:
-        cursor.close()
+        except Exception as e:
+            db.rollback()
+            return jsonify({'error': 'Failed to add/update band rating'}), 500
 
 
 # FETCH ALL USER BAND RATINGS
@@ -1004,29 +905,25 @@ def get_all_band_ratings():
     if not user_id:
         return jsonify({'error': 'Unauthorized'}), 401
 
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+    with get_db() as db:
+        try:
+            result = db.execute(
+                text(
+                    '''
+                    SELECT
+                        *
+                    FROM `band_ratings`
+                    WHERE `user_id` = :uid;
+                    '''
+                ), {'uid': user_id}
+            )
 
-    try:
-        cursor.execute(
-            '''
-            SELECT
-                *
-            FROM `band_ratings`
-            WHERE `user_id` = %s;
-            ''',
-            (user_id,)
-        )
+            band_ratings = [dict(row._mapping) for row in result]
+            return jsonify({'band_ratings': band_ratings})
 
-        band_ratings = cursor.fetchall()
-        return jsonify({'band_ratings': band_ratings})
-
-    except Exception as e:
-        print(f'Error: {e}')
-        return jsonify({'error': 'Failed fetching band ratings'}), 500
-
-    finally:
-        cursor.close()
+        except Exception as e:
+            print(f'Error: {e}')
+            return jsonify({'error': 'Failed fetching band ratings'}), 500
 
 
 # ADD SONG RATING
@@ -1040,49 +937,41 @@ def add_song_rating():
     if not user_id:
         return jsonify({'error': 'User not authenticated'}), 401
 
-    db = get_db()
-    cursor = db.cursor()
-
-    try:
-        # Check if the song is already rated
-        cursor.execute(
-            '''
-            SELECT `song_id` FROM `song_ratings` WHERE `user_id` = %s AND `song_id` = %s;
-            ''',
-            (user_id, song_id)
-        )
-        song_is_rated = cursor.fetchone()
-
-        if song_is_rated:
-            # If the song is already rated change rate to new value
-            cursor.execute(
-                '''
-                UPDATE `song_ratings`
-                SET `rating` = %s
-                WHERE `user_id` = %s
-                AND `song_id` = %s;
-                ''',
-                (rating_value, user_id, song_id)
+    with get_db() as db:
+        try:
+            res = db.execute(
+                text('SELECT `song_id` FROM `song_ratings` WHERE `user_id` = :uid AND `song_id` = :sid;'),
+                {'uid': user_id, 'sid': song_id}
             )
-            db.commit()
-            return jsonify({'message': 'Song rating updated'}), 200
-        else:
-            # If the song is not rated
-            cursor.execute(
-                '''
-                INSERT INTO `song_ratings` (user_id, song_id, rating) VALUES (%s, %s, %s);
-                ''',
-                (user_id, song_id, rating_value)
-            )
-            db.commit()
-            return jsonify({'message': 'Rating added to the song'}), 200
+            song_is_rated = res.fetchone()
 
-    except Exception as e:
-        db.rollback()
-        return jsonify({'error': 'Failed to add/update song rating'}), 500
+            if song_is_rated:
+                db.execute(
+                    text(
+                        '''
+                        UPDATE `song_ratings`
+                        SET `rating` = :val
+                        WHERE `user_id` = :uid
+                        AND `song_id` = :sid;
+                        '''
+                    ), {'val': rating_value, 'uid': user_id, 'sid': song_id}
+                )
+                db.commit()
+                return jsonify({'message': 'Song rating updated'}), 200
+            else:
+                db.execute(
+                    text(
+                        '''
+                        INSERT INTO `song_ratings` (`user_id`, `song_id`, `rating`) VALUES (:uid, :sid, :val);
+                        '''
+                    ), {'uid': user_id, 'sid': song_id, 'val': rating_value}
+                )
+                db.commit()
+                return jsonify({'message': 'Rating added to the song'}), 200
 
-    finally:
-        cursor.close()
+        except Exception as e:
+            db.rollback()
+            return jsonify({'error': 'Failed to add/update song rating'}), 500
 
 
 # FETCH ALL USER SONG RATINGS
@@ -1093,29 +982,25 @@ def get_all_song_ratings():
     if not user_id:
         return jsonify({'error': 'Unauthorized'}), 401
 
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+    with get_db() as db:
+        try:
+            result = db.execute(
+                text(
+                    '''
+                    SELECT
+                        *
+                    FROM `song_ratings`
+                    WHERE `user_id` = :uid;
+                    '''
+                ), {'uid': user_id}
+            )
 
-    try:
-        cursor.execute(
-            '''
-            SELECT
-                *
-            FROM `song_ratings`
-            WHERE `user_id` = %s;
-            ''',
-            (user_id,)
-        )
+            song_ratings = [dict(row._mapping) for row in result]
+            return jsonify({'song_ratings': song_ratings})
 
-        song_ratings = cursor.fetchall()
-        return jsonify({'song_ratings': song_ratings})
-
-    except Exception as e:
-        print(f'Error: {e}')
-        return jsonify({'error': 'Failed fetching song ratings'}), 500
-
-    finally:
-        cursor.close()
+        except Exception as e:
+            print(f'Error: {e}')
+            return jsonify({'error': 'Failed fetching song ratings'}), 500
 
 
 # ADD ALBUM RATING
@@ -1129,49 +1014,41 @@ def add_album_rating():
     if not user_id:
         return jsonify({'error': 'User not authenticated'}), 401
 
-    db = get_db()
-    cursor = db.cursor()
-
-    try:
-        # Check if the album is already rated
-        cursor.execute(
-            '''
-            SELECT `album_id` FROM `album_ratings` WHERE `user_id` = %s AND `album_id` = %s;
-            ''',
-            (user_id, album_id)
-        )
-        album_is_rated = cursor.fetchone()
-
-        if album_is_rated:
-            # If the album is already rated change rate to new value
-            cursor.execute(
-                '''
-                UPDATE `album_ratings`
-                SET `rating` = %s
-                WHERE `user_id` = %s
-                AND `album_id` = %s;
-                ''',
-                (rating_value, user_id, album_id)
+    with get_db() as db:
+        try:
+            res = db.execute(
+                text('SELECT `album_id` FROM `album_ratings` WHERE `user_id` = :uid AND `album_id` = :aid;'),
+                {'uid': user_id, 'aid': album_id}
             )
-            db.commit()
-            return jsonify({'message': 'Album rating updated'}), 200
-        else:
-            # If the album is not rated
-            cursor.execute(
-                '''
-                INSERT INTO `album_ratings` (user_id, album_id, rating) VALUES (%s, %s, %s);
-                ''',
-                (user_id, album_id, rating_value)
-            )
-            db.commit()
-            return jsonify({'message': 'Rating added to the album'}), 200
+            album_is_rated = res.fetchone()
 
-    except Exception as e:
-        db.rollback()
-        return jsonify({'error': 'Failed to add/update album rating'}), 500
+            if album_is_rated:
+                db.execute(
+                    text(
+                        '''
+                        UPDATE `album_ratings`
+                        SET `rating` = :val
+                        WHERE `user_id` = :uid
+                        AND `album_id` = :aid;
+                        '''
+                    ), {'val': rating_value, 'uid': user_id, 'aid': album_id}
+                )
+                db.commit()
+                return jsonify({'message': 'Album rating updated'}), 200
+            else:
+                db.execute(
+                    text(
+                        '''
+                        INSERT INTO `album_ratings` (`user_id`, `album_id`, `rating`) VALUES (:uid, :aid, :val);
+                        '''
+                    ), {'uid': user_id, 'aid': album_id, 'val': rating_value}
+                )
+                db.commit()
+                return jsonify({'message': 'Rating added to the album'}), 200
 
-    finally:
-        cursor.close()
+        except Exception as e:
+            db.rollback()
+            return jsonify({'error': 'Failed to add/update album rating'}), 500
 
 
 # FETCH ALL USER ALBUM RATINGS
@@ -1182,29 +1059,25 @@ def get_all_album_ratings():
     if not user_id:
         return jsonify({'error': 'Unauthorized'}), 401
 
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+    with get_db() as db:
+        try:
+            result = db.execute(line :=
+                text(
+                    '''
+                    SELECT
+                        *
+                    FROM `album_ratings`
+                    WHERE `user_id` = :uid;
+                    '''
+                ), {'uid': user_id}
+            )
 
-    try:
-        cursor.execute(
-            '''
-            SELECT
-                *
-            FROM `album_ratings`
-            WHERE `user_id` = %s;
-            ''',
-            (user_id,)
-        )
+            album_ratings = [dict(row._mapping) for row in result]
+            return jsonify({'album_ratings': album_ratings})
 
-        album_ratings = cursor.fetchall()
-        return jsonify({'album_ratings': album_ratings})
-
-    except Exception as e:
-        print(f'Error: {e}')
-        return jsonify({'error': 'Failed fetching album ratings'}), 500
-
-    finally:
-        cursor.close()
+        except Exception as e:
+            print(f'Error: {e}')
+            return jsonify({'error': 'Failed fetching album ratings'}), 500
 
 
 # MAIN
