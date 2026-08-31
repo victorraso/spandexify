@@ -4,6 +4,7 @@ __pycache__/
 
 # Ignore virtual environments
 venv/
+.venv/
 
 # Ignore environment variable files
 .env
@@ -16,3 +17,6 @@ venv/
 
 # Ignore .sql files
 *.sql
+
+
+app-mysql.py
