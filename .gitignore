@@ -19,4 +19,5 @@ venv/
 *.sql
 
 
-app-mysql.py
+app-postgres.py
+ca.pem
