@@ -20,4 +20,3 @@ venv/
 
 
 app-postgres.py
-ca.pem
