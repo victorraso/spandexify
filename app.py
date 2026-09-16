@@ -1,7 +1,7 @@
 from flask import Flask, render_template, g, jsonify, request, url_for, session, redirect, make_response, send_from_directory
 from werkzeug.security import check_password_hash, generate_password_hash
 from dotenv import load_dotenv
-from datetime import timedelta
+from datetime import timedelta, time
 
 import psycopg
 from psycopg.rows import dict_row
@@ -380,6 +380,9 @@ def albums_band_data(band_name):
             )
 
             album['song_length'] = f'{minutes:02}:{seconds:02}'
+
+        elif isinstance(album['song_length'], time):
+            album['song_length'] = album['song_length'].strftime('%H:%M:%S')
 
         if band_data['band_id'] is None:
             band_data['band_id'] = album['band_id']
