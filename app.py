@@ -324,6 +324,12 @@ def top_five(band_name):
 
                     song['song_length'] = f'{minutes:02}:{seconds:02}'
 
+                elif isinstance(song['song_length'], time):
+                    song['song_length'] = (
+                        f'{song["song_length"].minute:02}:'
+                        f'{song["song_length"].second:02}'
+                    )
+
                 if song.get('avg_rating') is not None:
                     song['avg_rating'] = float(song['avg_rating'])
 
@@ -382,7 +388,10 @@ def albums_band_data(band_name):
             album['song_length'] = f'{minutes:02}:{seconds:02}'
 
         elif isinstance(album['song_length'], time):
-            album['song_length'] = album['song_length'].strftime('%H:%M:%S')
+            album['song_length'] = (
+                f'{album["song_length"].minute:02}:'
+                f'{album["song_length"].second:02}'
+            )
 
         if band_data['band_id'] is None:
             band_data['band_id'] = album['band_id']
