@@ -21,3 +21,4 @@ venv/
 
 app-postgres.py
 app-mysqlconnector.py
+app-aiven.py
